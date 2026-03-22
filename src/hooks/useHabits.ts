@@ -1,8 +1,10 @@
-import { useState, useCallback, useMemo } from "react";
-import { format, subDays, isEqual, startOfDay } from "date-fns";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { format, subDays, startOfDay } from "date-fns";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type HabitType = "binary" | "count" | "time";
-
 export type HabitColor = "water" | "steps" | "read" | "meditate" | "exercise" | "sleep";
 
 export interface Habit {
@@ -13,7 +15,7 @@ export interface Habit {
   color: HabitColor;
   target: number;
   unit: string;
-  progress: Record<string, number>; // date string -> progress value
+  progress: Record<string, number>;
 }
 
 export interface Todo {
@@ -39,31 +41,42 @@ const defaultTodos: Todo[] = [
   { id: "t4", title: "Prepare presentation", completed: false },
 ];
 
-function loadState<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 export function useHabits() {
-  const [habits, setHabits] = useState<Habit[]>(() => loadState("habits", defaultHabits));
-  const [todos, setTodos] = useState<Todo[]>(() => loadState("todos", defaultTodos));
+  const { user } = useAuth();
+  const [habits, setHabits] = useState<Habit[]>(defaultHabits);
+  const [todos, setTodos] = useState<Todo[]>(defaultTodos);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [loaded, setLoaded] = useState(false);
 
+  const uid = user?.uid;
   const dateKey = format(selectedDate, "yyyy-MM-dd");
+
+  // Load from Firestore on auth
+  useEffect(() => {
+    if (!uid) return;
+    const load = async () => {
+      try {
+        const habitsSnap = await getDoc(doc(db, "users", uid, "data", "habits"));
+        if (habitsSnap.exists()) setHabits(habitsSnap.data().list as Habit[]);
+        const todosSnap = await getDoc(doc(db, "users", uid, "data", "todos"));
+        if (todosSnap.exists()) setTodos(todosSnap.data().list as Todo[]);
+      } catch (e) {
+        console.error("Failed to load data:", e);
+      }
+      setLoaded(true);
+    };
+    load();
+  }, [uid]);
 
   const saveHabits = useCallback((h: Habit[]) => {
     setHabits(h);
-    localStorage.setItem("habits", JSON.stringify(h));
-  }, []);
+    if (uid) setDoc(doc(db, "users", uid, "data", "habits"), { list: h }).catch(console.error);
+  }, [uid]);
 
   const saveTodos = useCallback((t: Todo[]) => {
     setTodos(t);
-    localStorage.setItem("todos", JSON.stringify(t));
-  }, []);
+    if (uid) setDoc(doc(db, "users", uid, "data", "todos"), { list: t }).catch(console.error);
+  }, [uid]);
 
   const getProgress = useCallback((habit: Habit) => {
     return habit.progress[dateKey] || 0;
@@ -131,7 +144,7 @@ export function useHabits() {
       const key = format(day, "yyyy-MM-dd");
       const allDone = habits.every(h => (h.progress[key] || 0) >= h.target);
       if (allDone && habits.length > 0) count++;
-      else if (i > 0) break; // allow today to be incomplete
+      else if (i > 0) break;
       else if (i === 0 && !allDone) continue;
     }
     return count;
@@ -153,7 +166,7 @@ export function useHabits() {
   }, [weeklyProgress]);
 
   return {
-    habits, todos, selectedDate, setSelectedDate, dateKey,
+    habits, todos, selectedDate, setSelectedDate, dateKey, loaded,
     getProgress, isCompleted, incrementHabit, resetHabit, updateHabitProgress,
     toggleTodo, addTodo, deleteTodo, addHabit, deleteHabit,
     completedCount, totalCount, progressPercent, streak,
