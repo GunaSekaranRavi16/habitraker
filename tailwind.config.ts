@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        display: ['Space Grotesk', 'sans-serif'],
+        body: ['DM Sans', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -46,6 +50,15 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        streak: "hsl(var(--streak))",
+        habit: {
+          water: "hsl(var(--habit-water))",
+          steps: "hsl(var(--habit-steps))",
+          read: "hsl(var(--habit-read))",
+          meditate: "hsl(var(--habit-meditate))",
+          exercise: "hsl(var(--habit-exercise))",
+          sleep: "hsl(var(--habit-sleep))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
