@@ -3,6 +3,7 @@ import { format, subDays, startOfDay } from "date-fns";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export type HabitType = "binary" | "count" | "time";
 export type HabitColor = "water" | "steps" | "read" | "meditate" | "exercise" | "sleep";
@@ -70,12 +71,24 @@ export function useHabits() {
 
   const saveHabits = useCallback((h: Habit[]) => {
     setHabits(h);
-    if (uid) setDoc(doc(db, "users", uid, "data", "habits"), { list: h }).catch(console.error);
+    if (uid) {
+      setDoc(doc(db, "users", uid, "data", "habits"), { list: h })
+        .catch((e) => {
+          console.error("Failed to save habits:", e);
+          toast.error("Failed to save habits. Please check your connection or permissions.");
+        });
+    }
   }, [uid]);
 
   const saveTodos = useCallback((t: Todo[]) => {
     setTodos(t);
-    if (uid) setDoc(doc(db, "users", uid, "data", "todos"), { list: t }).catch(console.error);
+    if (uid) {
+      setDoc(doc(db, "users", uid, "data", "todos"), { list: t })
+        .catch((e) => {
+          console.error("Failed to save todos:", e);
+          toast.error("Failed to save tasks. Please check your connection or permissions.");
+        });
+    }
   }, [uid]);
 
   const getProgress = useCallback((habit: Habit) => {
